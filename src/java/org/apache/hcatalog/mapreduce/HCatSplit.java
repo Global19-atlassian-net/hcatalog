@@ -44,6 +44,9 @@ public class HCatSplit extends InputSplit
 
     /** The schema for the HCatTable */
     private HCatSchema tableSchema;
+    
+    /** The table name of HCatTable, format: [dbn name].[table name] */
+    private String tableName;
 
     private HiveConf hiveConf;
 
@@ -101,8 +104,16 @@ public class HCatSplit extends InputSplit
     public HCatSchema getTableSchema() {
       return this.tableSchema;
     }
+    
+    public String getTableName() {
+		return tableName;
+	 }
 
-    /* (non-Javadoc)
+    public void setTableName(String tableName) {
+		this.tableName = tableName;
+    }
+
+	/* (non-Javadoc)
      * @see org.apache.hadoop.mapreduce.InputSplit#getLength()
      */
     @Override
@@ -134,6 +145,8 @@ public class HCatSplit extends InputSplit
     @SuppressWarnings("unchecked")
     @Override
     public void readFields(DataInput input) throws IOException {
+   	  tableName = WritableUtils.readString(input);
+   	 
         String partitionInfoString = WritableUtils.readString(input);
         partitionInfo = (PartInfo) HCatUtil.deserialize(partitionInfoString);
 
@@ -167,6 +180,8 @@ public class HCatSplit extends InputSplit
      */
     @Override
     public void write(DataOutput output) throws IOException {
+   	  WritableUtils.writeString(output, tableName);
+   	  
         String partitionInfoString = HCatUtil.serialize(partitionInfo);
 
         // write partitionInfo into output
