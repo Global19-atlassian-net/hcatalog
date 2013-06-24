@@ -2,8 +2,6 @@ package org.apache.hcatalog.mapreduce;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -55,12 +53,12 @@ public class HCatMultiInputFormat extends HCatBaseInputFormat{
 			allCols.append(field);
 		return allCols;
 	}
-	
+
 	public static HCatSchema getTableSchema(JobContext context)
 			throws IOException{
 		throw new IOException("getTableSchema(JobContext context) is not supported in HCatMultiInputFormat");
 	}
-	
+
 	public static HCatSchema getOutputSchema(JobContext context, String tableName) 
 			throws IOException {
 		String os = context.getConfiguration().get(
@@ -88,9 +86,18 @@ public class HCatMultiInputFormat extends HCatBaseInputFormat{
 		}
 		return list;
 	}
-	
+
 	private static String generateTableName(InputJobInfo jobInfo){
 		return jobInfo.getDatabaseName() + "." + jobInfo.getTableName();
+	}
+
+	private static HCatMultiSplit castToHMultiCatSplit(InputSplit split) throws IOException{
+		if (split instanceof HCatMultiSplit) {
+			return (HCatMultiSplit) split;
+		} else {
+			throw new IOException("Split must be " + HCatMultiSplit.class.getName()
+					+ " but found " + split.getClass().getName());
+		}
 	}
 
 	@Override
@@ -98,7 +105,7 @@ public class HCatMultiInputFormat extends HCatBaseInputFormat{
 	createRecordReader(InputSplit split,
 			TaskAttemptContext taskContext) throws IOException, InterruptedException {
 
-		HCatSplit hcatSplit = InternalUtil.castToHCatSplit(split);
+		HCatMultiSplit hcatSplit = castToHMultiCatSplit(split);
 		PartInfo partitionInfo = hcatSplit.getPartitionInfo();
 		JobContext jobContext = taskContext;
 
@@ -120,14 +127,16 @@ public class HCatMultiInputFormat extends HCatBaseInputFormat{
 			throws IOException, InterruptedException {
 		List<InputJobInfo> inputJobInfoList = getJobInfoList(jobContext);
 		List<InputSplit> splits = new ArrayList<InputSplit>();
+		int tableIndex = 1;
 		for(InputJobInfo inputJobInfo : inputJobInfoList){
 			List<InputSplit> oneTableSplits = getSplits(jobContext, inputJobInfo);
 			String tableName = generateTableName(inputJobInfo);
 			for(InputSplit split : oneTableSplits){
 				HCatSplit hCatSplit = (HCatSplit)split;
-				hCatSplit.setTableName(tableName);
-				splits.add(hCatSplit);
+				HCatMultiSplit newMultiSplit = new HCatMultiSplit(hCatSplit, tableName, tableIndex);
+				splits.add(newMultiSplit);
 			}
+			tableIndex ++;
 		}
 		return splits;
 	}
